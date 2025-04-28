@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, ArrowRight, RotateCcw, Home, Plus, X } from "lucide-react";
 
 interface BrowserEmulatorProps {
-  initialUrl: string;
+  initialUrl?: string;
 }
 
 interface Tab {
@@ -17,13 +17,29 @@ interface Tab {
   historyIndex: number;
 }
 
-const BrowserEmulator = ({ initialUrl }: BrowserEmulatorProps) => {
+const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmulatorProps) => {
+  // Безопасно обрабатываем URL
+  const safeInitialUrl = (url: string) => {
+    try {
+      // Пробуем добавить протокол, если его нет
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
+      }
+      new URL(url); // Проверяем, что URL валидный
+      return url;
+    } catch (e) {
+      return "https://www.example.com";
+    }
+  };
+  
+  const validInitialUrl = safeInitialUrl(initialUrl);
+
   const [tabs, setTabs] = useState<Tab[]>([
     { 
       id: 1, 
-      url: initialUrl, 
+      url: validInitialUrl, 
       title: "Новая вкладка", 
-      history: [initialUrl],
+      history: [validInitialUrl],
       historyIndex: 0
     }
   ]);
@@ -34,44 +50,71 @@ const BrowserEmulator = ({ initialUrl }: BrowserEmulatorProps) => {
   const currentTab = tabs.find(tab => tab.id.toString() === activeTab);
 
   const handleNavigate = (url: string) => {
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      url = "https://" + url;
-    }
-    
-    setIsLoading(true);
-    
-    // Обновляем историю для текущей вкладки
-    setTabs(prev => prev.map(tab => {
-      if (tab.id.toString() === activeTab) {
-        // Удаляем историю вперед, если мы были в середине истории
-        const newHistory = tab.history.slice(0, tab.historyIndex + 1);
-        return {
-          ...tab,
-          url,
-          title: "Загрузка...",
-          history: [...newHistory, url],
-          historyIndex: newHistory.length
-        };
-      }
-      return tab;
-    }));
-    
-    // Имитируем загрузку
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      let processedUrl = url;
       
-      // Обновляем заголовок после "загрузки"
+      // Добавляем протокол, если его нет
+      if (!processedUrl.startsWith("http://") && !processedUrl.startsWith("https://")) {
+        processedUrl = "https://" + processedUrl;
+      }
+      
+      // Проверяем, валидный ли URL
+      new URL(processedUrl);
+      
+      setIsLoading(true);
+      
+      // Обновляем историю для текущей вкладки
       setTabs(prev => prev.map(tab => {
         if (tab.id.toString() === activeTab) {
-          const domain = new URL(url).hostname;
+          // Удаляем историю вперед, если мы были в середине истории
+          const newHistory = tab.history.slice(0, tab.historyIndex + 1);
           return {
             ...tab,
-            title: domain
+            url: processedUrl,
+            title: "Загрузка...",
+            history: [...newHistory, processedUrl],
+            historyIndex: newHistory.length
           };
         }
         return tab;
       }));
-    }, 800);
+      
+      // Имитируем загрузку
+      setTimeout(() => {
+        setIsLoading(false);
+        
+        // Обновляем заголовок после "загрузки"
+        setTabs(prev => prev.map(tab => {
+          if (tab.id.toString() === activeTab) {
+            let pageTitle;
+            try {
+              const urlObj = new URL(processedUrl);
+              pageTitle = urlObj.hostname;
+            } catch (e) {
+              pageTitle = "Неизвестный сайт";
+            }
+            
+            return {
+              ...tab,
+              title: pageTitle
+            };
+          }
+          return tab;
+        }));
+      }, 800);
+    } catch (error) {
+      // В случае ошибки URL показываем ошибку в браузере
+      setTabs(prev => prev.map(tab => {
+        if (tab.id.toString() === activeTab) {
+          return {
+            ...tab,
+            title: "Ошибка URL",
+            url: "about:invalid"
+          };
+        }
+        return tab;
+      }));
+    }
   };
 
   const addNewTab = () => {
@@ -160,7 +203,7 @@ const BrowserEmulator = ({ initialUrl }: BrowserEmulatorProps) => {
     handleNavigate("https://www.example.com");
   };
 
-  const [inputUrl, setInputUrl] = useState<string>(initialUrl);
+  const [inputUrl, setInputUrl] = useState<string>(validInitialUrl);
 
   useEffect(() => {
     if (currentTab) {
@@ -171,6 +214,86 @@ const BrowserEmulator = ({ initialUrl }: BrowserEmulatorProps) => {
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleNavigate(inputUrl);
+  };
+
+  const getPageContent = (url: string) => {
+    if (isLoading) {
+      return (
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+          <p>Загрузка...</p>
+        </div>
+      );
+    }
+    
+    try {
+      // Проверяем особые URL
+      if (url === "about:invalid") {
+        return (
+          <div className="text-center max-w-2xl p-6 text-red-600">
+            <h2 className="text-xl mb-4">Ошибка: неверный URL</h2>
+            <p className="mb-4">Не удалось загрузить страницу. Проверьте, правильно ли введен адрес.</p>
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+              <p>Пример правильного формата: example.com или www.example.com</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Пытаемся разобрать URL
+      const urlObj = new URL(url);
+      
+      if (urlObj.hostname === "www.example.com") {
+        return (
+          <div className="text-center max-w-2xl p-6">
+            <h2 className="text-xl mb-4">Добро пожаловать в эмулятор браузера</h2>
+            <p className="mb-2">Вы сейчас на стартовой странице</p>
+            <div className="bg-gray-100 p-4 rounded-lg my-4">
+              <p className="text-sm text-gray-500">
+                Введите адрес сайта в адресную строку выше, чтобы перейти на другую страницу.
+                Вы также можете открыть несколько вкладок и переключаться между ними.
+              </p>
+            </div>
+            <img 
+              src="https://images.unsplash.com/photo-1481487196290-c152efe083f5?auto=format&fit=crop&w=800&h=400&q=80" 
+              alt="Website preview" 
+              className="mx-auto rounded-lg shadow-md"
+            />
+          </div>
+        );
+      } else {
+        return (
+          <div className="text-center max-w-2xl p-6">
+            <h2 className="text-xl mb-4">Страница для {urlObj.hostname}</h2>
+            <p className="mb-2">Текущий URL: <strong>{url}</strong></p>
+            <div className="bg-gray-100 p-4 rounded-lg my-4">
+              <p className="text-sm text-gray-500">
+                Это имитация страницы для {urlObj.hostname}.
+                В реальном браузере здесь отображалось бы содержимое сайта.
+              </p>
+            </div>
+            <img 
+              src={`https://source.unsplash.com/random/800x400?website`}
+              alt="Website preview" 
+              className="mx-auto rounded-lg shadow-md mt-4"
+            />
+          </div>
+        );
+      }
+    } catch (e) {
+      return (
+        <div className="text-center max-w-2xl p-6 text-red-600">
+          <h2 className="text-xl mb-4">Ошибка загрузки страницы</h2>
+          <p className="mb-4">Не удалось обработать URL: {url}</p>
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <p>Попробуйте другой адрес или вернитесь на <button 
+              className="text-blue-500 underline" 
+              onClick={goHome}
+            >домашнюю страницу</button></p>
+          </div>
+        </div>
+      );
+    }
   };
 
   return (
@@ -243,29 +366,8 @@ const BrowserEmulator = ({ initialUrl }: BrowserEmulatorProps) => {
           
           {tabs.map(tab => (
             <TabsContent key={tab.id} value={tab.id.toString()} className="m-0">
-              <div className="bg-white h-[60vh] flex items-center justify-center overflow-auto">
-                {isLoading && tab.id.toString() === activeTab ? (
-                  <div className="text-center">
-                    <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-                    <p>Загрузка...</p>
-                  </div>
-                ) : (
-                  <div className="text-center max-w-2xl p-6">
-                    <h2 className="text-xl mb-4">Это эмуляция браузера</h2>
-                    <p className="mb-2">Текущий URL: <strong>{tab.url}</strong></p>
-                    <div className="bg-gray-100 p-4 rounded-lg my-4">
-                      <p className="text-sm text-gray-500">
-                        Содержимое страницы для {tab.url} будет отображаться здесь.
-                        Обратите внимание, что это только эмуляция и не является настоящим браузером.
-                      </p>
-                    </div>
-                    <img 
-                      src="https://images.unsplash.com/photo-1481487196290-c152efe083f5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&h=400&q=80" 
-                      alt="Website preview" 
-                      className="mx-auto rounded-lg shadow-md"
-                    />
-                  </div>
-                )}
+              <div className="bg-white h-[60vh] flex items-center justify-center overflow-auto p-4">
+                {tab.id.toString() === activeTab && getPageContent(tab.url)}
               </div>
             </TabsContent>
           ))}
