@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, ArrowRight, RotateCcw, Home, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, Home, Plus, X, Search } from "lucide-react";
 
 interface BrowserEmulatorProps {
   initialUrl?: string;
+  browserType?: string;
 }
 
 interface Tab {
@@ -17,7 +18,73 @@ interface Tab {
   historyIndex: number;
 }
 
-const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmulatorProps) => {
+interface BrowserTheme {
+  toolbar: string;
+  tabsBar: string;
+  activeTab: string;
+  inactiveTab: string;
+  urlBar: string;
+  statusBar: string;
+  borderColor: string;
+  logo: string;
+  name: string;
+}
+
+const BrowserEmulator = ({ 
+  initialUrl = "https://www.example.com", 
+  browserType = "custom" 
+}: BrowserEmulatorProps) => {
+  // Определение тем браузеров
+  const browserThemes: Record<string, BrowserTheme> = {
+    custom: {
+      toolbar: "bg-gray-200",
+      tabsBar: "bg-gray-100",
+      activeTab: "bg-white",
+      inactiveTab: "bg-gray-100 hover:bg-gray-200",
+      urlBar: "bg-white",
+      statusBar: "bg-gray-100",
+      borderColor: "border-gray-300",
+      logo: "https://images.unsplash.com/photo-1510511336377-1a9caa095849?auto=format&fit=crop&w=100&h=100&q=80",
+      name: "Мой Браузер"
+    },
+    firefox: {
+      toolbar: "bg-slate-700",
+      tabsBar: "bg-slate-800",
+      activeTab: "bg-slate-700",
+      inactiveTab: "bg-slate-800 hover:bg-slate-700",
+      urlBar: "bg-slate-600 text-white",
+      statusBar: "bg-slate-800 text-gray-300",
+      borderColor: "border-slate-600",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Firefox_logo%2C_2019.svg/100px-Firefox_logo%2C_2019.svg.png",
+      name: "Firefox"
+    },
+    yandex: {
+      toolbar: "bg-blue-50",
+      tabsBar: "bg-white",
+      activeTab: "bg-white",
+      inactiveTab: "bg-gray-100 hover:bg-gray-50",
+      urlBar: "bg-white",
+      statusBar: "bg-gray-100",
+      borderColor: "border-gray-200",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Yandex_Browser_logo.svg/100px-Yandex_Browser_logo.svg.png",
+      name: "Яндекс Браузер"
+    },
+    opera: {
+      toolbar: "bg-red-100",
+      tabsBar: "bg-red-50",
+      activeTab: "bg-white",
+      inactiveTab: "bg-red-50 hover:bg-red-100",
+      urlBar: "bg-white",
+      statusBar: "bg-red-100 text-red-900",
+      borderColor: "border-red-200",
+      logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Opera_2015_icon.svg/100px-Opera_2015_icon.svg.png",
+      name: "Opera"
+    }
+  };
+
+  // Выбираем текущую тему браузера
+  const theme = browserThemes[browserType] || browserThemes.custom;
+
   // Безопасно обрабатываем URL
   const safeInitialUrl = (url: string) => {
     try {
@@ -59,7 +126,12 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
       }
       
       // Проверяем, валидный ли URL
-      new URL(processedUrl);
+      try {
+        new URL(processedUrl);
+      } catch (e) {
+        // Если URL не валидный, обрабатываем как поисковый запрос
+        processedUrl = "https://www.google.com/search?q=" + encodeURIComponent(url);
+      }
       
       setIsLoading(true);
       
@@ -200,7 +272,11 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
   };
 
   const goHome = () => {
-    handleNavigate("https://www.example.com");
+    const homePage = browserType === "firefox" ? "https://www.mozilla.org" :
+                    browserType === "yandex" ? "https://ya.ru" :
+                    browserType === "opera" ? "https://www.opera.com" :
+                    "https://www.example.com";
+    handleNavigate(homePage);
   };
 
   const [inputUrl, setInputUrl] = useState<string>(validInitialUrl);
@@ -220,7 +296,12 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
     if (isLoading) {
       return (
         <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+          <div className={`animate-spin w-8 h-8 border-4 border-t-transparent rounded-full mx-auto mb-2 
+            ${browserType === 'firefox' ? 'border-orange-500' : 
+             browserType === 'yandex' ? 'border-blue-500' : 
+             browserType === 'opera' ? 'border-red-500' : 
+             'border-indigo-500'}`}>
+          </div>
           <p>Загрузка...</p>
         </div>
       );
@@ -246,7 +327,7 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
       if (urlObj.hostname === "www.example.com") {
         return (
           <div className="text-center max-w-2xl p-6">
-            <h2 className="text-xl mb-4">Добро пожаловать в эмулятор браузера</h2>
+            <h2 className="text-xl mb-4">Добро пожаловать в {theme.name}</h2>
             <p className="mb-2">Вы сейчас на стартовой странице</p>
             <div className="bg-gray-100 p-4 rounded-lg my-4">
               <p className="text-sm text-gray-500">
@@ -255,8 +336,82 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
               </p>
             </div>
             <img 
+              src={theme.logo} 
+              alt={`${theme.name} logo`} 
+              className="w-24 h-24 mx-auto mb-6"
+            />
+            <img 
               src="https://images.unsplash.com/photo-1481487196290-c152efe083f5?auto=format&fit=crop&w=800&h=400&q=80" 
               alt="Website preview" 
+              className="mx-auto rounded-lg shadow-md"
+            />
+          </div>
+        );
+      } else if (urlObj.hostname === "www.mozilla.org" && browserType === "firefox") {
+        return (
+          <div className="text-center max-w-2xl p-6">
+            <h2 className="text-xl mb-4 text-orange-600">Firefox</h2>
+            <p className="mb-2">Домашняя страница Firefox</p>
+            <div className="bg-slate-100 p-4 rounded-lg my-4">
+              <p className="text-sm text-slate-700">
+                Firefox — свободный браузер на движке Gecko, разработкой и распространением которого занимается Mozilla Corporation.
+              </p>
+            </div>
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Firefox_logo%2C_2019.svg/200px-Firefox_logo%2C_2019.svg.png" 
+              alt="Firefox logo" 
+              className="mx-auto mb-6"
+            />
+            <img 
+              src="https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?auto=format&fit=crop&w=800&h=400&q=80" 
+              alt="Firefox preview" 
+              className="mx-auto rounded-lg shadow-md"
+            />
+          </div>
+        );
+      } else if (urlObj.hostname === "ya.ru" && browserType === "yandex") {
+        return (
+          <div className="text-center max-w-2xl p-6">
+            <h2 className="text-xl mb-4 text-blue-600">Яндекс</h2>
+            <p className="mb-2">Поиск Яндекс</p>
+            <div className="bg-blue-50 p-4 rounded-lg my-4">
+              <p className="text-sm text-blue-600">
+                Яндекс — крупнейшая российская IT-компания, владеющая одноимённой системой поиска в интернете.
+              </p>
+            </div>
+            <div className="mb-6 relative">
+              <Input
+                className="h-10 pr-10 rounded-full text-center"
+                placeholder="Найдётся всё"
+                disabled
+              />
+              <Search className="absolute top-2 right-3 h-6 w-6 text-red-500" />
+            </div>
+            <img 
+              src="https://images.unsplash.com/photo-1551033406-611cf9a28f67?auto=format&fit=crop&w=800&h=400&q=80" 
+              alt="Yandex preview" 
+              className="mx-auto rounded-lg shadow-md"
+            />
+          </div>
+        );
+      } else if (urlObj.hostname === "www.opera.com" && browserType === "opera") {
+        return (
+          <div className="text-center max-w-2xl p-6">
+            <h2 className="text-xl mb-4 text-red-600">Opera</h2>
+            <p className="mb-2">Добро пожаловать в Opera</p>
+            <div className="bg-red-50 p-4 rounded-lg my-4">
+              <p className="text-sm text-red-800">
+                Opera — быстрый и безопасный браузер со встроенными функциями VPN, блокировщика рекламы и менеджера сообщений.
+              </p>
+            </div>
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Opera_2015_icon.svg/200px-Opera_2015_icon.svg.png" 
+              alt="Opera logo" 
+              className="mx-auto mb-6"
+            />
+            <img 
+              src="https://images.unsplash.com/photo-1468495244123-6c6c332eeece?auto=format&fit=crop&w=800&h=400&q=80" 
+              alt="Opera preview" 
               className="mx-auto rounded-lg shadow-md"
             />
           </div>
@@ -297,15 +452,16 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
   };
 
   return (
-    <div className="w-full border border-gray-300 rounded-lg overflow-hidden shadow-xl bg-white">
+    <div className={`w-full border ${theme.borderColor} rounded-lg overflow-hidden shadow-xl bg-white`}>
       {/* Toolbar */}
-      <div className="bg-gray-200 p-2 border-b border-gray-300">
+      <div className={`${theme.toolbar} p-2 border-b ${theme.borderColor}`}>
         <div className="flex items-center mb-2 space-x-2">
           <Button 
             size="icon" 
             variant="ghost" 
             onClick={goBack}
             disabled={!currentTab || currentTab.historyIndex <= 0}
+            className={browserType === 'firefox' ? 'text-white' : ''}
           >
             <ArrowLeft size={16} />
           </Button>
@@ -315,15 +471,26 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
             variant="ghost"
             onClick={goForward}
             disabled={!currentTab || currentTab.historyIndex >= currentTab.history.length - 1}
+            className={browserType === 'firefox' ? 'text-white' : ''}
           >
             <ArrowRight size={16} />
           </Button>
           
-          <Button size="icon" variant="ghost" onClick={refresh}>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={refresh}
+            className={browserType === 'firefox' ? 'text-white' : ''}
+          >
             <RotateCcw size={16} />
           </Button>
           
-          <Button size="icon" variant="ghost" onClick={goHome}>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={goHome}
+            className={browserType === 'firefox' ? 'text-white' : ''}
+          >
             <Home size={16} />
           </Button>
           
@@ -331,7 +498,7 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
             <Input
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
-              className="h-9 bg-white"
+              className={`h-9 ${theme.urlBar}`}
               placeholder="Введите URL"
             />
           </form>
@@ -339,12 +506,12 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
         
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-gray-100 w-full h-auto p-1 justify-start">
+          <TabsList className={`${theme.tabsBar} w-full h-auto p-1 justify-start`}>
             {tabs.map(tab => (
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id.toString()} 
-                className="h-8 flex items-center justify-between pr-1 data-[state=active]:bg-white"
+                className={`h-8 flex items-center justify-between pr-1 ${tab.id.toString() === activeTab ? theme.activeTab : theme.inactiveTab}`}
               >
                 <span className="truncate max-w-32">{tab.title}</span>
                 <X 
@@ -375,9 +542,9 @@ const BrowserEmulator = ({ initialUrl = "https://www.example.com" }: BrowserEmul
       </div>
       
       {/* Status bar */}
-      <div className="bg-gray-100 text-xs text-gray-500 p-1 border-t border-gray-300 flex justify-between">
+      <div className={`${theme.statusBar} text-xs p-1 border-t ${theme.borderColor} flex justify-between`}>
         <span>{currentTab?.url || ""}</span>
-        <span>Эмулятор браузера v1.0</span>
+        <span>Эмулятор {theme.name} v1.0</span>
       </div>
     </div>
   );
